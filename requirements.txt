@@ -1,0 +1,4 @@
+snaql==0.3.5
+click==6.3
+records==0.4.3
+PyYAML==3.11
