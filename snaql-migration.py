@@ -24,12 +24,11 @@
 
 import os
 from datetime import datetime
+from urllib.parse import urlparse, unquote
 
 import click
-import records
 import yaml
 from snaql.factory import Snaql
-from sqlalchemy.exc import SQLAlchemyError
 
 __version__ = '0.0.1'
 
@@ -45,11 +44,9 @@ def snaql_migration(ctx, config):
     ctx.obj = {'config': _parse_config(config)}
 
     try:
-        ctx.obj['db'] = records.Database(ctx.obj['config']['db_uri'])
-    except SQLAlchemyError as e:
+        ctx.obj['db'] = DBWrapper(ctx.obj['config']['db_uri'])
+    except Exception as e:
         raise click.ClickException('Unable to connect to database\n' + str(e))
-
-    _prepare_migrations_table(ctx.obj['db'])
 
 
 @click.command()
@@ -62,7 +59,7 @@ def show(ctx):
     for app_name, app in ctx.obj['config']['apps'].items():
         click.echo(click.style(app_name, fg='green', bold=True))
         for migration in app['migrations']:
-            applied = _already_applied(ctx.obj['db'], app_name, migration)
+            applied = ctx.obj['db'].is_migration_applied(app_name, migration)
             click.echo('  {0} {1}'.format(migration, click.style('(applied)', bold=True) if applied else ''))
 
 
@@ -83,7 +80,7 @@ def apply(ctx, name, verbose):
             for migration in app['migrations']:
                 click.echo('  Executing {0}...'.format(click.style(migration, bold=True)))
 
-                if _already_applied(ctx.obj['db'], app_name, migration):
+                if ctx.obj['db'].is_migration_applied(app_name, migration):
                     click.echo(click.style('  SKIPPED.', fg='green'))
                     continue
 
@@ -98,7 +95,9 @@ def apply(ctx, name, verbose):
                     click.echo(click.style('  FAIL.', fg='red'))
                     raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-                _fix_migration(ctx.obj['db'], app_name, migration)
+                ctx.obj['db'].fix_migration(app_name, migration)
+
+                ctx.obj['db'].commit()
 
                 click.echo(click.style('  OK.', fg='green'))
 
@@ -126,7 +125,7 @@ def revert(ctx, name, verbose):
         raise click.ClickException('unknown migration "{0}"'.format(name))
 
     click.echo(click.style('Reverting {0}...'.format(click.style(name, bold=True)), fg='blue'))
-    if not _already_applied(ctx.obj['db'], app_name, migration):
+    if not ctx.obj['db'].is_migration_applied(app_name, migration):
         return click.echo(click.style('  SKIPPED.', fg='green'))
 
     try:
@@ -141,36 +140,11 @@ def revert(ctx, name, verbose):
         click.echo(click.style('  FAIL.', fg='red'))
         raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-    _revert_migration(ctx.obj['db'], app_name, migration)
+    ctx.obj['db'].revert_migration(app_name, migration)
+
+    ctx.obj['db'].commit()
 
     click.echo(click.style('  OK.', fg='green'))
-
-
-def _prepare_migrations_table(db):
-    db.query('CREATE TABLE IF NOT EXISTS snaql_migrations ('
-             'app VARCHAR(50) NOT NULL,'
-             'migration VARCHAR(50) NOT NULL,'
-             'applied DATETIME NOT NULL,'
-             'PRIMARY KEY (app, migration))')
-
-
-def _fix_migration(db, app, migration):
-    db.query('INSERT INTO snaql_migrations(app, migration, applied) '
-             'VALUES (:app, :migration, :date)',
-             app=app,
-             migration=migration,
-             date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-
-
-def _revert_migration(db, app, migration):
-    db.query('DELETE FROM snaql_migrations WHERE app=:app AND migration=:migration', app=app, migration=migration)
-
-
-def _already_applied(db, app, migration):
-    return db.query('SELECT EXISTS(SELECT 1 FROM snaql_migrations '
-                    'WHERE app=:app AND migration=:migration)',
-                    app=app,
-                    migration=migration)[0][0]
 
 
 def _collect_migrations(migrations_dir):
@@ -203,6 +177,71 @@ def _parse_config(config_file):
     config['apps'] = apps
 
     return config
+
+
+class DBWrapper:
+    def __init__(self, db_url):
+        parsed = urlparse(db_url)
+        url = {
+            'scheme': parsed.scheme,
+            'host': parsed.hostname,
+            'path': unquote(parsed.path).lstrip('/'),
+            'username': None,
+            'password': None,
+            'port': None
+        }
+        if parsed.username:
+            url['username'] = unquote(parsed.username)
+        if parsed.password:
+            url['password'] = unquote(parsed.password)
+        if parsed.port:
+            url['port'] = int(parsed.port)
+
+        if url['scheme'] == 'sqlite':
+            import sqlite3
+            self.db = sqlite3.connect(url['path'])
+        elif url['scheme'] == 'mysql+pymysql':
+            import pymysql
+            self.db = pymysql.connect(host=url['host'], port=url['port'], user=url['username'],
+                                      passwd=url['password'], db=url['path'])
+        else:
+            raise click.ClickException('unsupported db connection type "{0}"'.format(url['scheme']))
+
+        self._prepare_migrations_table()
+
+    def _prepare_migrations_table(self):
+        self.query('CREATE TABLE IF NOT EXISTS snaql_migrations ('
+                   'app VARCHAR(50) NOT NULL,'
+                   'migration VARCHAR(50) NOT NULL,'
+                   'applied DATETIME NOT NULL,'
+                   'PRIMARY KEY (app, migration))')
+
+        self.commit()
+
+    def query(self, sql, **kwargs):
+        return self.db.cursor().execute(sql, kwargs)
+
+    def commit(self):
+        self.db.commit()
+
+    def is_migration_applied(self, app, migration):
+        return self.query('SELECT EXISTS(SELECT 1 FROM snaql_migrations WHERE app=:app AND migration=:migration)',
+                          app=app, migration=migration).fetchone()[0]
+
+    def fix_migration(self, app, migration):
+        self.query('INSERT INTO snaql_migrations(app, migration, applied) '
+                   'VALUES (:app, :migration, :date)',
+                   app=app,
+                   migration=migration,
+                   date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    def revert_migration(self, app, migration):
+        self.query('DELETE FROM snaql_migrations WHERE app=:app AND migration=:migration', app=app,
+                   migration=migration)
+
+    def __del__(self):
+        if hasattr(self, 'db'):
+            self.db.close()
 
 
 # TODO: implement CREATE command
