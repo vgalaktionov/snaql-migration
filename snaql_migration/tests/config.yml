@@ -1,0 +1,5 @@
+db_uri: 'sqlite:///tests/test.db'
+
+migrations:
+  users_app: 'tests/users/migrations'
+  countries_app: 'tests/countries/migrations'

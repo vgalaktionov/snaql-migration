@@ -30,7 +30,7 @@ import click
 import yaml
 from snaql.factory import Snaql
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 @click.group()
@@ -169,6 +169,7 @@ def _parse_config(config_file):
     if 'migrations' not in config or not config['migrations']:
         raise click.ClickException('at least one migration must be specified in config file')
 
+    # reformatting to the {apps: {app1: {path: /some_path, migrations: [...]}}} format
     apps = {}
     for app, path in config['migrations'].items():
         apps[app] = {'path': path, 'migrations': _collect_migrations(path)}
