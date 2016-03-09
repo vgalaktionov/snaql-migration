@@ -30,7 +30,7 @@ import click
 import yaml
 from snaql.factory import Snaql
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 
 @click.group()
@@ -247,10 +247,11 @@ class DBWrapper:
         if parsed.port:
             url['port'] = int(parsed.port)
 
-        if url['scheme'] == 'sqlite':
-            import sqlite3
-            self.db = sqlite3.connect(url['path'])
-        elif url['scheme'] == 'mysql+pymysql':
+        if url['scheme'] == 'postgres':
+            import psycopg2
+            self.db = psycopg2.connect(host=url['host'], port=url['port'], user=url['username'],
+                                       password=url['password'], database=url['path'])
+        elif url['scheme'] == 'mysql':
             import pymysql
             self.db = pymysql.connect(host=url['host'], port=url['port'], user=url['username'],
                                       passwd=url['password'], db=url['path'])
@@ -263,13 +264,18 @@ class DBWrapper:
         self.query('CREATE TABLE IF NOT EXISTS snaql_migrations ('
                    'app VARCHAR(50) NOT NULL,'
                    'migration VARCHAR(50) NOT NULL,'
-                   'applied DATETIME NOT NULL,'
+                   'applied TIMESTAMP NOT NULL,'
                    'PRIMARY KEY (app, migration))')
 
         self.commit()
 
-    def query(self, sql, **kwargs):
-        return self.db.cursor().execute(sql, kwargs)
+    def query(self, sql, *args):
+        return self.db.cursor().execute(sql, args)
+
+    def query_one(self, sql, *args):
+        with self.db.cursor() as cur:
+            cur.execute(sql, args)
+            return cur.fetchone()
 
     def commit(self):
         self.db.commit()
@@ -278,19 +284,19 @@ class DBWrapper:
         self.db.rollback()
 
     def is_migration_applied(self, app, migration):
-        return self.query('SELECT EXISTS(SELECT 1 FROM snaql_migrations WHERE app=:app AND migration=:migration)',
-                          app=app, migration=migration).fetchone()[0]
+        with self.db.cursor() as cur:
+            cur.execute('SELECT EXISTS(SELECT 1 FROM snaql_migrations WHERE app=%s AND migration=%s)', [app, migration])
+            return cur.fetchone()[0]
 
     def fix_migration(self, app, migration):
-        self.query('INSERT INTO snaql_migrations(app, migration, applied) '
-                   'VALUES (:app, :migration, :date)',
-                   app=app,
-                   migration=migration,
-                   date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        with self.db.cursor() as cur:
+            cur.execute('INSERT INTO snaql_migrations(app, migration, applied) '
+                        'VALUES (%s, %s, %s)',
+                        [app, migration, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
 
     def revert_migration(self, app, migration):
-        self.query('DELETE FROM snaql_migrations WHERE app=:app AND migration=:migration', app=app,
-                   migration=migration)
+        with self.db.cursor() as cur:
+            cur.execute('DELETE FROM snaql_migrations WHERE app=%s AND migration=%s', [app, migration])
 
     def __del__(self):
         if hasattr(self, 'db'):

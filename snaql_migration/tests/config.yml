@@ -1,4 +1,4 @@
-db_uri: 'sqlite:///tests/test.db'
+db_uri: 'postgres://test:@localhost/test'
 
 migrations:
   users_app: 'tests/users/migrations'

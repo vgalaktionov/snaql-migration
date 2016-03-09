@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='snaql-migration',
-    version='0.0.2',
+    version='0.0.3',
     py_modules=['snaql_migration'],
     include_package_data=True,
     install_requires=[
