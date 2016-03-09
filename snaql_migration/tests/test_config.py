@@ -18,7 +18,8 @@ class TestConfig(unittest.TestCase):
     def test_collect_migrations(self):
         self.assertEqual(_collect_migrations('tests/users'),
                          ['migrations/001-create-users',
-                          'migrations/002-update-users'])
+                          'migrations/002-update-users',
+                          'migrations/003-create-index'])
 
     def test_parse_config(self):
         # invalid db uri
@@ -36,7 +37,7 @@ class TestConfig(unittest.TestCase):
             self.assertIn('db_uri', config)
             self.assertEqual(config['apps'], {
                 'users_app': {
-                    'migrations': ['001-create-users', '002-update-users'],
+                    'migrations': ['001-create-users', '002-update-users', '003-create-index'],
                     'path': 'tests/users/migrations'
                 },
                 'countries_app': {
