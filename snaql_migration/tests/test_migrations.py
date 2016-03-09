@@ -50,6 +50,20 @@ class TestMigrations(unittest.TestCase):
         self.assertTrue(self.db.is_migration_applied('countries_app', '001-create-countries'))
         self.assertTrue(self.db.is_migration_applied('users_app', '001-create-users'))
 
+    def test_apply_specific(self):
+        result = self.runner.invoke(snaql_migration, ['--config', 'tests/config.yml', 'apply', 'users_app/002-update-users'])
+
+        self.assertEqual(result.exit_code, 0)
+
+        self.assertIsNone(self.db.query(
+            "SELECT * FROM sqlite_master "
+            "WHERE type='index' AND name='idx1';").fetchone()
+              )
+
+        self.assertTrue(self.db.is_migration_applied('users_app', '001-create-users'))
+        self.assertTrue(self.db.is_migration_applied('users_app', '002-update-users'))
+        self.assertFalse(self.db.is_migration_applied('users_app', '003-create-index'))
+
     def test_revert(self):
         self.runner.invoke(snaql_migration, ['--config', 'tests/config.yml', 'apply', 'all'])
 
