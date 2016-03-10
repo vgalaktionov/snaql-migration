@@ -16,18 +16,21 @@ class TestConfig(unittest.TestCase):
         self.runner = CliRunner()
 
     def test_collect_migrations(self):
-        self.assertEqual(_collect_migrations('tests/users'),
+        self.assertEqual(_collect_migrations('tests/users/'),
                          ['migrations/001-create-users',
                           'migrations/002-update-users',
-                          'migrations/003-create-index'])
+                          'migrations/003-create-index',
+                          'migrations_broken/001-create-roles',
+                          'migrations_broken/002-create-users'
+                          ])
 
     def test_parse_config(self):
         # invalid db uri
-        input = StringIO('db_urii: "sqlite:///tests/test.db"')
+        input = StringIO('db_urii: "postgres://test:@localhost/test"')
         self.assertRaises(ClickException, _parse_config, input)
 
         # no migrations defined
-        input = StringIO('db_uri: "sqlite:///tests/test.db"\r\n'
+        input = StringIO('db_uri: "postgres://test:@localhost/test"\r\n'
                          'migrations: \r\n')
         self.assertRaises(ClickException, _parse_config, input)
 
@@ -48,7 +51,3 @@ class TestConfig(unittest.TestCase):
     def test_invalid_config(self):
         result = self.runner.invoke(snaql_migration, ['--config', 'invalid.yml'])
         self.assertEqual(result.exit_code, 2)
-
-    def test_valid_config(self):
-        result = self.runner.invoke(snaql_migration, ['--config', 'tests/config.yml', 'show'])
-        self.assertEqual(result.exit_code, 0)

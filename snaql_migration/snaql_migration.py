@@ -5,19 +5,6 @@
 
     Lightweight SQL schema migration tool, based on Snaql query builder.
 
-    Every migration must be stored in a couple of SQL files:
-      - some_migration.apply.sql
-      - some_migration.revert.sql
-
-    YAML-config file format:
-
-      db_uri: 'sqlite:///tests/test.db'
-
-      migrations:
-        first_app: 'first_app_location/migrations'
-        second_app: 'irst_app_location/migrations'
-
-
     :copyright: (c) 2016 by Egor Komissarov.
     :license: MIT, see LICENSE for more details.
 """
@@ -87,61 +74,67 @@ def apply(ctx, name, verbose):
         if target_migration not in migrations:
             raise click.ClickException('unknown migration "{0}"'.format(name))
 
-        try:
-            for migration in migrations[:migrations.index(target_migration) + 1]:
-                click.echo(click.style('Applying {0}...'.format(click.style(migration, bold=True)), fg='blue'))
+        migrations = migrations[:migrations.index(target_migration) + 1]  # including all prevoius migrations
+        for migration in migrations:
+            click.echo(click.style('Applying {0}...'.format(click.style(migration, bold=True)), fg='blue'))
 
-                if ctx.obj['db'].is_migration_applied(app_name, migration):
-                    click.echo(click.style('  SKIPPED.', fg='green'))
-                    continue
+            if ctx.obj['db'].is_migration_applied(app_name, migration):
+                click.echo(click.style('  SKIPPED.', fg='green'))
+                continue
 
+            try:
                 snaql_factory = Snaql(app['path'], '')
                 queries = snaql_factory.load_queries(migration + '.apply.sql').ordered_blocks
+
                 for query in queries:
                     if verbose:
                         click.echo('    ' + query())
+
                     ctx.obj['db'].query(query())
 
-                ctx.obj['db'].fix_migration(app_name, migration)
+            except Exception as e:
+                click.echo(click.style('  FAILED.', fg='red'))
+                ctx.obj['db'].rollback()
+                raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-                click.echo(click.style('  OK.', fg='green'))
 
-        except Exception as e:
-            click.echo(click.style('  FAILED.', fg='red'))
-            ctx.obj['db'].rollback()
-            raise click.ClickException('migration execution failed\n{0}'.format(e))
+            click.echo(click.style('  OK.', fg='green'))
 
-        ctx.obj['db'].commit()
+            ctx.obj['db'].commit()
+
+            ctx.obj['db'].fix_migration(app_name, migration)
 
     else:  # migrate everything
-        try:
-            for app_name, app in ctx.obj['config']['apps'].items():
-                click.echo(click.style('Migrating {0}...'.format(click.style(app_name, bold=True)), fg='blue'))
+        for app_name, app in ctx.obj['config']['apps'].items():
+            click.echo(click.style('Migrating {0}...'.format(click.style(app_name, bold=True)), fg='blue'))
 
-                for migration in app['migrations']:
-                    click.echo('  Applying {0}...'.format(click.style(migration, bold=True)))
+            for migration in app['migrations']:
+                click.echo('  Applying {0}...'.format(click.style(migration, bold=True)))
 
-                    if ctx.obj['db'].is_migration_applied(app_name, migration):
-                        click.echo(click.style('    SKIPPED.', fg='green'))
-                        continue
+                if ctx.obj['db'].is_migration_applied(app_name, migration):
+                    click.echo(click.style('    SKIPPED.', fg='green'))
+                    continue
 
+                try:
                     snaql_factory = Snaql(app['path'], '')
                     queries = snaql_factory.load_queries(migration + '.apply.sql').ordered_blocks
+
                     for query in queries:
                         if verbose:
                             click.echo('    ' + query())
+
                         ctx.obj['db'].query(query())
 
-                    ctx.obj['db'].fix_migration(app_name, migration)
+                except Exception as e:
+                    click.echo(click.style('    FAILED.', fg='red'))
+                    ctx.obj['db'].rollback()
+                    raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-                    click.echo(click.style('  OK.', fg='green'))
+                click.echo(click.style('  OK.', fg='green'))
 
-        except Exception as e:
-            click.echo(click.style('    FAILED.', fg='red'))
-            ctx.obj['db'].rollback()
-            raise click.ClickException('migration execution failed\n{0}'.format(e))
+                ctx.obj['db'].commit()
 
-        ctx.obj['db'].commit()
+                ctx.obj['db'].fix_migration(app_name, migration)
 
 
 @click.command()
@@ -167,33 +160,38 @@ def revert(ctx, name, verbose):
     if target_migration not in migrations:
         raise click.ClickException('unknown migration "{0}"'.format(name))
 
-    try:
-        mig_idx = migrations.index(target_migration)
-        for migration in reversed(migrations[-len(migrations) + mig_idx:]):  # all migrations after target_migration
-            click.echo(
-                click.style('Reverting {0}...'.format(click.style(app_name + '/' + migration, bold=True)), fg='blue'))
+    mig_idx = migrations.index(target_migration)
+    migrations = migrations[-len(migrations) + mig_idx:]  # all migrations after target_migration
+    migrations = migrations[::-1]  # in reversed order
+    
+    for migration in migrations:
+        click.echo(
+            click.style('Reverting {0}...'.format(click.style(app_name + '/' + migration, bold=True)), fg='blue'))
 
-            if not ctx.obj['db'].is_migration_applied(app_name, migration):
-                click.echo(click.style('  SKIPPED.', fg='green'))
-                continue
-
+        if not ctx.obj['db'].is_migration_applied(app_name, migration):
+            click.echo(click.style('  SKIPPED.', fg='green'))
+            continue
+        try:
             snaql_factory = Snaql(app['path'], '')
             queries = snaql_factory.load_queries(migration + '.revert.sql').ordered_blocks
+
             for query in queries:
                 if verbose:
                     click.echo('    ' + query())
+
                 ctx.obj['db'].query(query())
 
-            ctx.obj['db'].revert_migration(app_name, migration)
+        except Exception as e:
+            click.echo(click.style('  FAILED.', fg='red'))
+            ctx.obj['db'].rollback()
 
-            click.echo(click.style('  OK.', fg='green'))
+            raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-    except Exception as e:
-        click.echo(click.style('  FAILED.', fg='red'))
-        ctx.obj['db'].rollback()
-        raise click.ClickException('migration execution failed\n{0}'.format(e))
+        click.echo(click.style('  OK.', fg='green'))
 
-    ctx.obj['db'].commit()
+        ctx.obj['db'].commit()
+
+        ctx.obj['db'].revert_migration(app_name, migration)
 
 
 def _collect_migrations(migrations_dir):
@@ -266,16 +264,17 @@ class DBWrapper:
                    'migration VARCHAR(50) NOT NULL,'
                    'applied TIMESTAMP NOT NULL,'
                    'PRIMARY KEY (app, migration))')
-
         self.commit()
 
     def query(self, sql, *args):
-        return self.db.cursor().execute(sql, args)
+        return self.db.cursor().execute(sql, *args)  # note: there is no autocommit
 
     def query_one(self, sql, *args):
         with self.db.cursor() as cur:
-            cur.execute(sql, args)
-            return cur.fetchone()
+            cur.execute(sql, *args)
+            result = cur.fetchone()
+            self.commit()
+            return result
 
     def commit(self):
         self.db.commit()
@@ -284,19 +283,19 @@ class DBWrapper:
         self.db.rollback()
 
     def is_migration_applied(self, app, migration):
-        with self.db.cursor() as cur:
-            cur.execute('SELECT EXISTS(SELECT 1 FROM snaql_migrations WHERE app=%s AND migration=%s)', [app, migration])
-            return cur.fetchone()[0]
+        return self.query_one('SELECT EXISTS(SELECT 1 FROM snaql_migrations '
+                              'WHERE app=%s AND migration=%s)',
+                              [app, migration])[0]
 
     def fix_migration(self, app, migration):
-        with self.db.cursor() as cur:
-            cur.execute('INSERT INTO snaql_migrations(app, migration, applied) '
-                        'VALUES (%s, %s, %s)',
-                        [app, migration, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        self.query('INSERT INTO snaql_migrations(app, migration, applied) '
+                   'VALUES (%s, %s, %s)',
+                   [app, migration, datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        self.commit()
 
     def revert_migration(self, app, migration):
-        with self.db.cursor() as cur:
-            cur.execute('DELETE FROM snaql_migrations WHERE app=%s AND migration=%s', [app, migration])
+        self.query('DELETE FROM snaql_migrations WHERE app=%s AND migration=%s', [app, migration])
+        self.commit()
 
     def __del__(self):
         if hasattr(self, 'db'):
