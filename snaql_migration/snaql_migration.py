@@ -97,7 +97,6 @@ def apply(ctx, name, verbose):
                 ctx.obj['db'].rollback()
                 raise click.ClickException('migration execution failed\n{0}'.format(e))
 
-
             click.echo(click.style('  OK.', fg='green'))
 
             ctx.obj['db'].commit()
@@ -163,7 +162,7 @@ def revert(ctx, name, verbose):
     mig_idx = migrations.index(target_migration)
     migrations = migrations[-len(migrations) + mig_idx:]  # all migrations after target_migration
     migrations = migrations[::-1]  # in reversed order
-    
+
     for migration in migrations:
         click.echo(
             click.style('Reverting {0}...'.format(click.style(app_name + '/' + migration, bold=True)), fg='blue'))
@@ -202,7 +201,16 @@ def _collect_migrations(migrations_dir):
             migration = os.path.join(root, file).lstrip(migrations_dir + '/').rsplit('.', 2)[0]
             migrations.append(migration)
 
-    return sorted(set(migrations))
+    migrations = sorted(set(migrations))
+
+    for migration in migrations:
+        if not os.path.isfile(os.path.join(migrations_dir, migration + '.apply.sql')) \
+           or not os.path.isfile(os.path.join(migrations_dir, migration + '.revert.sql')):
+
+            raise click.ClickException('One of the .apply.sql or .revert.sql files '
+                                       'is absent for migration \'{0}\''.format(migration))
+
+    return migrations
 
 
 def _parse_config(config_file):
