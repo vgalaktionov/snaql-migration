@@ -1,2 +1,2 @@
 # -*- coding: utf-8 -*-
-from snaql_migration import snaql_migration  # ¯\_(ツ)_/¯
+from snaql_migration import snaql_migration

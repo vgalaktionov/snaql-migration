@@ -1,4 +1,0 @@
-db_uri: "postgres://postgres:@localhost/test"
-migrations:
-    users_app: "tests/users/migrations"
-    countries_app: "tests/countries/migrations"

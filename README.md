@@ -1,7 +1,10 @@
-# snaql-migration
+# snaql-migration [![Build Status](https://img.shields.io/travis/komissarex/snaql-migration.svg)](https://travis-ci.org/komissarex/snaql-migration)
+
 Lightweight SQL schema migration tool, based on [Snaql](https://github.com/semirook/snaql) query builder.
 
 The main idea is to provide ability of describing migrations in raw SQL – every migration is a couple of files: `001-some-migration.apply.sql` and `001-some-migration.revert.sql`
+
+Suitable for both Python 2.7 and 3.3+
 
 Basic Usage
 -----------
@@ -25,9 +28,9 @@ Let's say you have an app to deal with *users*:
     003-create-index.revert.sql
 ```
 
-Notes:
-* migrations are sorted in ANSI order, so make sure you are numbering them with lead zeros
-* `*.apply.sql` and `*.revert.sql` of the same migration must have equal name
+*Notes:*
+* *migrations are sorted in ANSI order, so make sure you are numbering them with lead zeros*
+* *`*.apply.sql` and `*.revert.sql` of the same migration must have equal name*
 
 Every migration is just a [Snaql](https://github.com/semirook/snaql) queries container.
 
@@ -72,27 +75,34 @@ migrations:
   users_app: 'apps/users/migrations'
 ```
 
-Note: of course, you could describe several apps with different migrations location.
+*Note: of course, you could describe several apps with different migrations location.*
 
 And then just:
-
-```bash
-$ snaql-migration --config=config.yml show    # shows all available migrations
-```
 
 ```bash
 $ snaql-migration --config=config.yml apply all    # applies all available migrations in all configured apps
 ```
 
-```bash
-$ snaql-migration --config=config.yml apply users_app/002-update-users    # applies all migrations up to 002-update-users in users_app (inclusive)
-```
+Available commands
+------------------
 
-```bash
-$ snaql-migration --config=config.yml revert users_app/002-update-users    # reverts all migrations down to 002-update-users in users_app (inclusive)
-```
+Comand | Action
+------ | ------
+`show` | Shows all configured apps and migrations
+`apply all` | Applies all available migrations in all configured apps
+`apply users_app/002-update-users` | Applies all migrations up to 002-update-users in users_app (inclusive)
+`revert users_app/002-update-users` | Reverts all migrations down to 002-update-users in users_app (inclusive)
+
+**Note: any command will automatically create `snaql_migrations` table in your database**
 
 Supported databases
 -------------------
 * PostgreSQL through `Psycopg2`
 * MySQL through `PyMySQL`
+
+*Note: Necessary database driver must be installed separately*
+
+Unit-testing
+-------
+At first, valid **PostgreSQL** database connection url must be provided in `tests/db_uri.yml`. 
+After that everything could be run as usual (with `tox`, for example).
