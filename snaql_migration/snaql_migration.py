@@ -10,14 +10,20 @@
 """
 
 import os
+
 from datetime import datetime
-from urllib.parse import urlparse, unquote
+
+try:
+    from urllib.parse import urlparse, unquote
+except ImportError:
+    from urlparse import urlparse
+    from urllib2 import unquote as unquote
 
 import click
 import yaml
 from snaql.factory import Snaql
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 
 @click.group()
@@ -205,8 +211,7 @@ def _collect_migrations(migrations_dir):
 
     for migration in migrations:
         if not os.path.isfile(os.path.join(migrations_dir, migration + '.apply.sql')) \
-           or not os.path.isfile(os.path.join(migrations_dir, migration + '.revert.sql')):
-
+                or not os.path.isfile(os.path.join(migrations_dir, migration + '.revert.sql')):
             raise click.ClickException('One of the .apply.sql or .revert.sql files '
                                        'is absent for migration \'{0}\''.format(migration))
 
@@ -254,11 +259,19 @@ class DBWrapper:
             url['port'] = int(parsed.port)
 
         if url['scheme'] == 'postgres':
-            import psycopg2
+            try:
+                import psycopg2
+            except ImportError:
+                raise click.ClickException("psycopg2 must be installed for PostgreSQL use")
+
             self.db = psycopg2.connect(host=url['host'], port=url['port'], user=url['username'],
                                        password=url['password'], database=url['path'])
         elif url['scheme'] == 'mysql':
-            import pymysql
+            try:
+                import pymysql
+            except ImportError:
+                raise click.ClickException("pymysql must be installed for MySQL use")
+
             self.db = pymysql.connect(host=url['host'], port=url['port'], user=url['username'],
                                       passwd=url['password'], db=url['path'])
         else:
@@ -310,11 +323,6 @@ class DBWrapper:
             self.db.close()
 
 
-# TODO: implement CREATE command
-
 snaql_migration.add_command(show)
 snaql_migration.add_command(apply)
 snaql_migration.add_command(revert)
-
-if __name__ == '__main__':
-    snaql_migration()

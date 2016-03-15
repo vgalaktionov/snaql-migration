@@ -24,18 +24,18 @@ class TestConfig(unittest.TestCase):
 
     def test_parse_config(self):
         # invalid db uri
-        input = StringIO('db_urii: "postgres://test:@localhost/test"')
+        input = StringIO(u'db_urii: "postgres://test:@localhost/test"')
         self.assertRaises(ClickException, _parse_config, input)
 
         # no migrations defined
-        input = StringIO('db_uri: "postgres://test:@localhost/test"\r\n'
-                         'migrations: \r\n')
+        input = StringIO(u'db_uri: "postgres://test:@localhost/test"\r\n'
+                         u'migrations: \r\n')
         self.assertRaises(ClickException, _parse_config, input)
 
-        input = StringIO('db_uri: "{0}"\r\n'
-                         'migrations:\r\n'
-                         '    users_app: "snaql_migration/tests/users/migrations"\r\n'
-                         '    countries_app: "snaql_migration/tests/countries/migrations"')
+        input = StringIO(u'db_uri: "{0}"\r\n'
+                         u'migrations:\r\n'
+                         u'    users_app: "snaql_migration/tests/users/migrations"\r\n'
+                         u'    countries_app: "snaql_migration/tests/countries/migrations"')
 
         # valid config
         config = _parse_config(input)
