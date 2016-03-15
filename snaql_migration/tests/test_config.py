@@ -34,19 +34,23 @@ class TestConfig(unittest.TestCase):
                          'migrations: \r\n')
         self.assertRaises(ClickException, _parse_config, input)
 
+        input = StringIO('db_uri: "{0}"\r\n'
+                         'migrations:\r\n'
+                         '    users_app: "tests/users/migrations"\r\n'
+                         '    countries_app: "tests/countries/migrations"')
+
         # valid config
-        with open('tests/config.yml', 'rb') as f:
-            config = _parse_config(f)
-            self.assertIn('db_uri', config)
-            self.assertEqual(config['apps'], {
-                'users_app': {
-                    'migrations': ['001-create-users', '002-update-users', '003-create-index'],
-                    'path': 'tests/users/migrations'
-                },
-                'countries_app': {
-                    'migrations': ['001-create-countries'],
-                    'path': 'tests/countries/migrations'
-                }})
+        config = _parse_config(input)
+        self.assertIn('db_uri', config)
+        self.assertEqual(config['apps'], {
+            'users_app': {
+                'migrations': ['001-create-users', '002-update-users', '003-create-index'],
+                'path': 'tests/users/migrations'
+            },
+            'countries_app': {
+                'migrations': ['001-create-countries'],
+                'path': 'tests/countries/migrations'
+            }})
 
     def test_invalid_config(self):
         result = self.runner.invoke(snaql_migration, ['--config', 'invalid.yml'])

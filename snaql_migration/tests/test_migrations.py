@@ -1,3 +1,5 @@
+import yaml
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -12,13 +14,26 @@ class TestMigrations(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
 
-        with open('tests/config.yml', 'rb') as f:
-            self.config = _parse_config(f)
+        with open('tests/db_uri.yml', 'rb') as f:
+            self.db_uri = yaml.load(f)['db_uri']
 
-        with open('tests/config_broken.yml', 'rb') as f: # points to broken migrations
-            self.config_broken = _parse_config(f)
+        try:
+            self.db = DBWrapper(self.db_uri)
+        except Exception:
+            self.fail("Unable to connect to database")
 
-        self.db = DBWrapper(self.config['db_uri'])
+        # generating config files
+        with open('tests/config.yml', 'w') as f:
+            f.writelines('db_uri: "{0}"\r\n'
+                         'migrations:\r\n'
+                         '    users_app: "tests/users/migrations"\r\n'
+                         '    countries_app: "tests/countries/migrations"'.format(self.db_uri))
+
+        with open('tests/config_broken.yml', 'w') as f:  # points to broken migrations
+            f.writelines('db_uri: "{0}"\r\n'
+                         'migrations:\r\n'
+                         '    users_app: "tests/users/migrations_broken"\r\n'.format(self.db_uri))
+
 
         # initial db cleanup
         self.db.query("DROP TABLE IF EXISTS users;")
@@ -128,4 +143,3 @@ class TestMigrations(unittest.TestCase):
 
         self.assertTrue(self.db.is_migration_applied('users_app', '001-create-roles'))
         self.assertFalse(self.db.is_migration_applied('users_app', '002-create-users'))
-

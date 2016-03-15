@@ -1,0 +1,1 @@
+db_uri: 'postgres://test:@localhost/test'
