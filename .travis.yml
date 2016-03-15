@@ -8,6 +8,7 @@ script: nosetests
 
 install:
   - "pip install -r requirements.txt"
+  - "pip install psycopg2"
 
 notifications:
   email:
