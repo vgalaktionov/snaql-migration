@@ -16,12 +16,10 @@ class TestConfig(unittest.TestCase):
         self.runner = CliRunner()
 
     def test_collect_migrations(self):
-        self.assertEqual(_collect_migrations('tests/users/'),
-                         ['migrations/001-create-users',
-                          'migrations/002-update-users',
-                          'migrations/003-create-index',
-                          'migrations_broken/001-create-roles',
-                          'migrations_broken/002-create-users'
+        self.assertEqual(_collect_migrations('snaql_migration/tests/users/migrations'),
+                         ['001-create-users',
+                          '002-update-users',
+                          '003-create-index'
                           ])
 
     def test_parse_config(self):
@@ -36,8 +34,8 @@ class TestConfig(unittest.TestCase):
 
         input = StringIO('db_uri: "{0}"\r\n'
                          'migrations:\r\n'
-                         '    users_app: "tests/users/migrations"\r\n'
-                         '    countries_app: "tests/countries/migrations"')
+                         '    users_app: "snaql_migration/tests/users/migrations"\r\n'
+                         '    countries_app: "snaql_migration/tests/countries/migrations"')
 
         # valid config
         config = _parse_config(input)
@@ -45,11 +43,11 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config['apps'], {
             'users_app': {
                 'migrations': ['001-create-users', '002-update-users', '003-create-index'],
-                'path': 'tests/users/migrations'
+                'path': 'snaql_migration/tests/users/migrations'
             },
             'countries_app': {
                 'migrations': ['001-create-countries'],
-                'path': 'tests/countries/migrations'
+                'path': 'snaql_migration/tests/countries/migrations'
             }})
 
     def test_invalid_config(self):
