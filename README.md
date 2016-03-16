@@ -86,7 +86,7 @@ $ snaql-migration --config=config.yml apply all    # applies all available migra
 Available commands
 ------------------
 
-Comand | Action
+Command | Action
 ------ | ------
 `show` | Shows all configured apps and migrations
 `apply all` | Applies all available migrations in all configured apps
