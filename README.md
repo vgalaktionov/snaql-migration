@@ -1,4 +1,4 @@
-# snaql-migration [![Build Status](https://img.shields.io/travis/komissarex/snaql-migration.svg)](https://travis-ci.org/komissarex/snaql-migration)
+# snaql-migration [![Build Status](https://img.shields.io/travis/komissarex/snaql-migration.svg)](https://travis-ci.org/komissarex/snaql-migration) [![Version](https://img.shields.io/pypi/v/snaql-migration.svg)](https://pypi.python.org/pypi/snaql-migration)
 
 Lightweight SQL schema migration tool, based on [Snaql](https://github.com/semirook/snaql) query builder.
 
@@ -86,7 +86,7 @@ $ snaql-migration --config=config.yml apply all    # applies all available migra
 Available commands
 ------------------
 
-Comand | Action
+Command | Action
 ------ | ------
 `show` | Shows all configured apps and migrations
 `apply all` | Applies all available migrations in all configured apps
