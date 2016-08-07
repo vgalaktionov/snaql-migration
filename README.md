@@ -30,7 +30,7 @@ Let's say you have an app to deal with *users*:
 
 *Notes:*
 * *migrations are sorted in ANSI order, so make sure you are numbering them with lead zeros*
-* *`*.apply.sql` and `*.revert.sql` of the same migration must have equal name*
+* **.apply.sql and *.revert.sql of the same migration must have equal name*
 
 Every migration is just a [Snaql](https://github.com/semirook/snaql) queries container.
 
@@ -73,14 +73,19 @@ db_uri: 'postgres://test:@localhost/test'
 
 migrations:
   users_app: 'apps/users/migrations'
+  other_app: 'apps/other_app/migrations'
 ```
-
-*Note: of course, you could describe several apps with different migrations location.*
 
 And then just:
 
 ```bash
 $ snaql-migration --config=config.yml apply all    # applies all available migrations in all configured apps
+```
+
+If you need to migrate only one app, you could use `--db-uri/--migrations/--app` parameters instead of `--config`:
+
+```bash
+$ snaql-migration --db-uri=postgres://test:@localhost/test --app=users_app --migrations=apps/users/migrations apply all
 ```
 
 Available commands

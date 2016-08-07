@@ -1,5 +1,5 @@
-snaql-migration
-===============
+snaql-migration |Build Status|
+==============================
 
 Lightweight SQL schema migration tool, based on
 `Snaql <https://github.com/semirook/snaql>`__ query builder.
@@ -42,7 +42,7 @@ queries container.
 
 001-create-users.apply.sql:
 
-.. code:: sql
+.. code::
 
     {% sql 'create_roles' %}
       CREATE TABLE roles (
@@ -64,7 +64,7 @@ queries container.
 
 001-create-users.revert.sql:
 
-.. code:: sql
+.. code::
 
     {% sql 'revert_users' %}
       DROP TABLE users;
@@ -83,15 +83,20 @@ migrations locations:
 
     migrations:
       users_app: 'apps/users/migrations'
-
-*Note: of course, you could describe several apps with different
-migrations location.*
+      other_app: 'apps/other_app/migrations'
 
 And then just:
 
 .. code:: bash
 
     $ snaql-migration --config=config.yml apply all    # applies all available migrations in all configured apps
+
+If you need to migrate only one app, you could use ``--db-uri/--migrations/--app`` parameters instead of ``--config``:
+
+.. code:: bash
+
+    $ snaql-migration --db-uri=postgres://test:@localhost/test --app=users_app --migrations=apps/users/migrations apply all
+
 
 Available commands
 ------------------
@@ -109,7 +114,7 @@ Available commands
 
 
 *Note: any command will automatically create ``snaql_migrations`` table
-in your database*
+in your database**
 
 Supported databases
 -------------------
