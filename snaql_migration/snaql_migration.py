@@ -9,6 +9,8 @@
     :license: MIT, see LICENSE for more details.
 """
 
+import warnings
+
 import os
 
 from datetime import datetime
@@ -23,23 +25,38 @@ import click
 import yaml
 from snaql.factory import Snaql
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 
 @click.group()
-@click.option('--config', default='config.yml', help='Configuration file', type=click.File('rb'))
+@click.option('--db-uri', default=None, help='Database URI, ignored if --config is set')
+@click.option('--migrations', default=None, help='Migrations location, ignored if --config is set',
+              type=click.Path(exists=True))
+@click.option('--app', default=None, help='App name, ignored if --config is set')
+@click.option('--config', default=None,
+              help='Configuration file, overlaps usage of the --db-uri/--migrations/--app group', type=click.File('rb'))
 @click.pass_context
-def snaql_migration(ctx, config):
+def snaql_migration(ctx, db_uri, migrations, app, config):
     """
     Lightweight SQL Schema migration tool based on Snaql queries
     """
 
-    ctx.obj = {'config': _parse_config(config)}
+    if config:
+        migrations_config = _parse_config(config)
+    else:
+        if db_uri and migrations and app:
+            migrations_config = _generate_config(db_uri, migrations, app)
+        else:
+            raise click.ClickException('If --config is not set, then --db-uri, --migrations and --app must be provided')
+
+    ctx.obj = {
+        'config': migrations_config
+    }
 
     try:
         ctx.obj['db'] = DBWrapper(ctx.obj['config']['db_uri'])
     except Exception as e:
-        raise click.ClickException('Unable to connect to database\n' + str(e))
+        raise click.ClickException('Unable to connect to database, exception is "{0}"'.format(str(e)))
 
 
 @click.command()
@@ -240,6 +257,18 @@ def _parse_config(config_file):
     return config
 
 
+def _generate_config(db_uri, migrations, app):
+    return {
+        'db_uri': db_uri,
+        'apps': {
+            app: {
+                'path': migrations,
+                'migrations': _collect_migrations(migrations)
+            }
+        }
+    }
+
+
 class DBWrapper:
     def __init__(self, db_url):
         parsed = urlparse(db_url)
@@ -262,7 +291,7 @@ class DBWrapper:
             try:
                 import psycopg2
             except ImportError:
-                raise click.ClickException("psycopg2 must be installed for PostgreSQL use")
+                raise click.ClickException('Package psycopg2 must be installed for PostgreSQL use')
 
             self.db = psycopg2.connect(host=url['host'], port=url['port'], user=url['username'],
                                        password=url['password'], database=url['path'])
@@ -270,16 +299,17 @@ class DBWrapper:
             try:
                 import pymysql
             except ImportError:
-                raise click.ClickException("pymysql must be installed for MySQL use")
+                raise click.ClickException('Package pymysql must be installed for MySQL use')
 
             self.db = pymysql.connect(host=url['host'], port=url['port'], user=url['username'],
                                       passwd=url['password'], db=url['path'])
         else:
-            raise click.ClickException('unsupported db connection type "{0}"'.format(url['scheme']))
+            raise click.ClickException('Unsupported db connection type "{0}"'.format(url['scheme']))
 
         self._prepare_migrations_table()
 
     def _prepare_migrations_table(self):
+        warnings.simplefilter("ignore")
         self.query('CREATE TABLE IF NOT EXISTS snaql_migrations ('
                    'app VARCHAR(50) NOT NULL,'
                    'migration VARCHAR(50) NOT NULL,'
@@ -326,3 +356,7 @@ class DBWrapper:
 snaql_migration.add_command(show)
 snaql_migration.add_command(apply)
 snaql_migration.add_command(revert)
+
+
+if __name__ == '__main__':
+    snaql_migration()
