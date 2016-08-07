@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
-    long_description = readme_file.read()
-
 setup(
     name='snaql-migration',
     version='0.1.1',
