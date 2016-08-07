@@ -1,5 +1,5 @@
-snaql-migration |Build Status|
-==============================
+snaql-migration
+===============
 
 Lightweight SQL schema migration tool, based on
 `Snaql <https://github.com/semirook/snaql>`__ query builder.
