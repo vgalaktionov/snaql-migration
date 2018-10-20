@@ -11,9 +11,9 @@ setup(
     url='https://github.com/komissarex/snaql-migration',
     description='Lightweight SQL schema migration tool, based on Snaql query builder',
     install_requires=[
-        'click==6.6',
-        'snaql==0.4',
-        'PyYAML==3.11'
+        'click==7.0',
+        'snaql==0.4.1',
+        'PyYAML==3.13'
     ],
     entry_points={
         'console_scripts': [
