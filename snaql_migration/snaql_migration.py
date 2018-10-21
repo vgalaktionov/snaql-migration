@@ -33,7 +33,7 @@ __version__ = '0.1.2'
 @click.option('--migrations', default=None, help='Migrations location, ignored if --config is set',
               type=click.Path(exists=True))
 @click.option('--app', default=None, help='App name, ignored if --config is set')
-@click.option('--config', default=None,
+@click.option('--config', default='migrations.yml',
               help='Configuration file, overlaps usage of the --db-uri/--migrations/--app group', type=click.File('rb'))
 @click.pass_context
 def snaql_migration(ctx, db_uri, migrations, app, config):
